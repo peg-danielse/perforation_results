@@ -1,0 +1,5 @@
+started:    2024-03-02 23:31:39
+ended:      2024-03-02 23:42:02
+duration:   0:10:22.904282
+host:       4209f2e99ac7
+tasks:      parsec-x264-simsmall-3

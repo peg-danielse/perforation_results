@@ -1,0 +1,5 @@
+started:    2024-02-28 08:55:48
+ended:      2024-02-28 09:15:12
+duration:   0:19:24.625971
+host:       3271a3ffc1a8
+tasks:      parsec-blackscholes-simmedium-3

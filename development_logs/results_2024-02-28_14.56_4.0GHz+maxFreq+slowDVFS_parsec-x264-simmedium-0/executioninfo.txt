@@ -1,0 +1,5 @@
+started:    2024-02-28 16:36:48
+ended:      2024-02-28 17:36:35
+duration:   0:59:47.130351
+host:       3271a3ffc1a8
+tasks:      parsec-x264-simmedium-3

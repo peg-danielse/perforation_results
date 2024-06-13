@@ -1,0 +1,5 @@
+started:    2024-05-28 17:18:10
+ended:      2024-05-28 18:20:59
+duration:   1:02:49.165608
+host:       cbb524b6b091
+tasks:      parsec-x264-simsmall-8

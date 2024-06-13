@@ -1,0 +1,5 @@
+started:    2024-02-11 14:56:34
+ended:      2024-02-11 15:47:27
+duration:   0:50:53.418358
+host:       dcf6d10a0073
+tasks:      parsec-streamcluster-simmedium-3
