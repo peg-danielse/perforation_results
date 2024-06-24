@@ -243,108 +243,8 @@ def divide_chunks(l, n):
     for i in range(0, len(l), n):  
         yield l[i:i + n] 
 
-def plot_suface_graph():
-    line_marker = dict(color='#0066FF', width=5)
-    layout = go.Layout(
-        title='Speed-up and accuracy loss of Pr_a and Pr_b in Swaptions',
-        width=1600, height=800,
-        scene=dict(
-            xaxis=dict(
-                title={'text':"Perforation Rate A [%]"},
-                gridcolor='rgb(255, 255, 255)',
-                zerolinecolor='rgb(255, 255, 255)',
-                showbackground=True,
-                backgroundcolor='rgb(230, 230,230)'
-            ),
-            yaxis=dict(
-                title={'text':"Perforation Rate B [%]"},
-                gridcolor='rgb(255, 255, 255)',
-                zerolinecolor='rgb(255, 255, 255)',
-                showbackground=True,
-                backgroundcolor='rgb(230, 230,230)'
-            ),
-            zaxis=dict(
-                title={'text':"Speed up of responce time against 0% Perforation"},
-                gridcolor='rgb(255, 255, 255)',
-                zerolinecolor='rgb(255, 255, 255)',
-                showbackground=True,
-                backgroundcolor='rgb(230, 230,230)'
-            )
-        ),
-        showlegend=False,
-    )
-    
-    results = compile_testdata("swaptions_surface_3_a0_b1:", RESULTS_DIR, 'swaptions')
-    reference = results[0]
-
-    data = {
-        'x': [ 0, 20, 40, 60],
-        'y': [ 0, 20, 40, 60],
-        'pr_a': [],
-        'pr_b': [],
-        'speed-up': [],
-        'accuracy': [],
-    }
-
-    for r in results:
-        # catch for the broken log
-        if r.pr_vector == ['40','60', '0']:
-            continue
-
-        accuracy = calc_accuracy(r, reference)
-        speedup = calc_speedup(r, reference)
-
-        data['pr_a'].append(int(r.pr_vector[0]))
-        data['pr_b'].append(int(r.pr_vector[1]))
-        data['speed-up'].append(speedup)
-        data['accuracy'].append(accuracy)
-    
-    # add in missing point. 
-    data['accuracy'].insert(11,0)
-    data['speed-up'].insert(11,1.56)
-    data['pr_a'].insert(11,40)
-    data['pr_b'].insert(11,60)
-
-    pr_a = list(divide_chunks(data['pr_a'],4))
-    pr_b = list(divide_chunks(data['pr_b'],4))
-    sped = list(divide_chunks(data['speed-up'],4))
-    accu = list(divide_chunks(data['accuracy'],4))
-
-    # transpose for the wireframe lines.
-    pr_a_t = np.array(pr_a).T.tolist()
-    pr_b_t = np.array(pr_b).T.tolist()
-    sped_t = np.array(sped).T.tolist()
-    accu_t = np.array(accu).T.tolist()
-
-    fig = make_subplots(rows=1, cols=2,
-                        specs=[[{'type': 'scatter3d'}, {'type': 'contour'}]],
-                        subplot_titles=('Speed up graph for Pr A and Pr B', 'Accuracy contour for Pr A and Pr B',))
-    
-    fig.update_layout(layout)
-
-    # build the wireframe
-    for i, j, k in zip(pr_a, pr_b, sped):
-        fig.append_trace(go.Scatter3d(x=i, y=j, z=k, mode='lines', line=line_marker), row=1,col=1)
-
-    for i, j, k in zip(pr_a_t, pr_b_t, sped_t):
-        fig.append_trace(go.Scatter3d(x=i, y=j, z=k, mode='lines', line=line_marker),row=1,col=1)
-    
-    # generate the contour
-    fig.append_trace(go.Contour(x=data['x'], y= data['y'], z=accu, colorbar=dict(
-        title='Average Accuracy',
-        titleside='right',
-    )), row=1,col=2)
-
-    fig.update_layout(layout, scene_camera=dict(eye=dict(x=-1.5, y=-1.5, z=.1)))
-    fig.update_xaxes(title_text="Perforation Rate A [%]",row=1, col=2)
-    fig.update_yaxes(title_text="Perforation Rate B [%]", row=1,col=2)
-
-    fig.write_image(os.path.join(OUTPUT_DIR,"speedup and accuracy.pdf"))
-    # fig.show()
-    
-
 def plot_contour():
-    results = compile_testdata("swaptions_surface_3_a0_b1:", RESULTS_DIR, 'swaptions')
+    results = compile_testdata("swaptions_surface", RESULTS_DIR, 'swaptions')
     reference = results[0]
 
     data = {
@@ -389,37 +289,8 @@ def plot_contour():
     contour.update_yaxes(title_text="Perforation Rate B [%]")
     contour.write_image(os.path.join(OUTPUT_DIR,"accuracy-contour.pdf"))
 
-def plot_speedup():
-    line_marker = dict(color='#0066FF', width=5)
-    layout = go.Layout(
-        width=800, height=700,
-        scene=dict(
-            xaxis=dict(
-                title={'text':"Perforation Rate A [%]"},
-                gridcolor='rgb(255, 255, 255)',
-                zerolinecolor='rgb(255, 255, 255)',
-                showbackground=True,
-                backgroundcolor='rgb(230, 230,230)'
-            ),
-            yaxis=dict(
-                title={'text':"Perforation Rate B [%]"},
-                gridcolor='rgb(255, 255, 255)',
-                zerolinecolor='rgb(255, 255, 255)',
-                showbackground=True,
-                backgroundcolor='rgb(230, 230,230)'
-            ),
-            zaxis=dict(
-                title={'text':"Speed up of responce time against 0% Perforation"},
-                gridcolor='rgb(255, 255, 255)',
-                zerolinecolor='rgb(255, 255, 255)',
-                showbackground=True,
-                backgroundcolor='rgb(230, 230,230)'
-            )
-        ),
-        showlegend=False,
-    )
-
-    results = compile_testdata("swaptions_surface_3_a0_b1:", RESULTS_DIR, 'swaptions')
+def plot_contour_speedup():
+    results = compile_testdata("swaptions_surface", RESULTS_DIR, 'swaptions')
     reference = results[0]
 
     data = {
@@ -436,7 +307,7 @@ def plot_speedup():
         if r.pr_vector == ['40','60', '0']:
             continue
 
-        accuracy = calc_accuracy(r, reference)
+        accuracy = calc_accuracy_sum(r, reference)
         speedup = calc_speedup(r, reference)
 
         data['pr_a'].append(int(r.pr_vector[0]))
@@ -445,37 +316,26 @@ def plot_speedup():
         data['accuracy'].append(accuracy)
     
     # add in missing point. 
-    data['accuracy'].insert(11,0)
-    data['speed-up'].insert(11,1.56)
-    data['pr_a'].insert(11,40)
-    data['pr_b'].insert(11,60)
+    # data['accuracy'].insert(11,0)
+    # data['speed-up'].insert(11,1.56)
+    # data['pr_a'].insert(11,40)
+    # data['pr_b'].insert(11,60)
 
-    pr_a = list(divide_chunks(data['pr_a'],4))
-    pr_b = list(divide_chunks(data['pr_b'],4))
-    sped = list(divide_chunks(data['speed-up'],4))
-    accu = list(divide_chunks(data['accuracy'],4))
+    pprint(data)
 
-    # transpose for the wireframe lines.
-    pr_a_t = np.array(pr_a).T.tolist()
-    pr_b_t = np.array(pr_b).T.tolist()
-    sped_t = np.array(sped).T.tolist()
-    accu_t = np.array(accu).T.tolist()
-
-    lines = []
-
-
-    # build the wireframe
-    for i, j, k in zip(pr_a, pr_b, sped):
-        lines.append(go.Scatter3d(x=i, y=j, z=k, mode='lines', line=line_marker))
-
-    for i, j, k in zip(pr_a_t, pr_b_t, sped_t):
-        lines.append(go.Scatter3d(x=i, y=j, z=k, mode='lines', line=line_marker))
+    speed = list(divide_chunks(data['speed-up'],4))
     
-    fig = go.Figure(data=lines, layout=layout)
-    fig.update_layout(scene_camera=dict(eye=dict(x=-1.5, y=-1.5, z=.1)))
+    contour = go.Figure(go.Contour(x=data['x'], y= data['y'], z=speed, colorbar=dict(
+        title='Speed-up',
+        titleside='right',
+    )))
 
-    fig.write_image(os.path.join(OUTPUT_DIR, "speed-up wireframe.pdf"))
+    contour.update_layout(go.Layout(
+        title='Speedup Contour of Pr A and Pr B in Swaptions',
+        width=400, height=400))
+    contour.update_xaxes(title_text="Perforation Rate A [%]")
+    contour.update_yaxes(title_text="Perforation Rate B [%]")
+    contour.write_image(os.path.join(OUTPUT_DIR,"speed-up-contour.pdf"))
 
-plot_suface_graph()
 plot_contour()
-plot_speedup()
+plot_contour_speedup()

@@ -1,0 +1,5 @@
+started:    2024-06-16 08:44:59
+ended:      2024-06-16 09:37:01
+duration:   0:52:02.652093
+host:       node202
+tasks:      parsec-swaptions-simsmall-2
