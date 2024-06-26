@@ -6,16 +6,6 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
-
-import seaborn as sns
-
-import plotly.express as px
-import plotly.graph_objects as go
-
-from plotly.subplots import make_subplots
-
 from pprint import pprint
 
 
@@ -39,6 +29,15 @@ app_map = { 0:'blackscholes',
             4:'swaptions',
             5:'x264'
         }
+
+def remove_extra_datapoint():
+    for dirname in sorted(os.listdir(RESULTS_DIR)):
+        pr_vec = dirname.split(':')[1].split(',')
+        if len(pr_vec) > 2:
+            print(dirname)
+            print(os.path.join(RESULTS_DIR, dirname[:-(len(pr_vec[2]) + 1)]))
+            os.rename(os.path.join(RESULTS_DIR, dirname), os.path.join(RESULTS_DIR, dirname[:-(len(pr_vec[2]) + 1)]))
+
 
 def app_mapping(path):
     file = open(path)
@@ -151,13 +150,10 @@ def get_benchmark_output(experiment_data : ExpData):
     
     return run_out
 
-def calc_accuracy(output, reference):
-    loss = 0
-
+def calc_accuracy(output: ExpData, reference: ExpData):
     comparison = list(zip(get_benchmark_output(output), get_benchmark_output(reference)))
 
-    # print(len(comparison))
-
+    loss = 0
     for e in comparison:
         try:
             loss += abs(e[0] - e[1])/ abs(e[0])
@@ -165,17 +161,26 @@ def calc_accuracy(output, reference):
             print("warning zero div: trying calculation ({} - {} / {})".format(e[0], e[1], e[0]))
             continue
     
-    return max(1 - (loss / len(comparison)), 0)
+    try:
+        return max(1 - (loss / len(comparison)), 0)
+    except ZeroDivisionError:
+        print("warning zero div: no output for point {}".format(output.pr_vector))
+        return 0
 
-def calc_accuracy_sum(output, reference):
+def calc_accuracy_sum(output: ExpData, reference: ExpData):
     loss = 0
+
+
+    if len(get_benchmark_output(output)) == 0:
+        # print("warning: no output".format(output.pr_vector))
+        return 0
 
     output = get_benchmark_output(output)
     reference = get_benchmark_output(reference)
 
     loss = (abs(sum(reference)- sum(output)) / sum(reference))
     
-    print(1 - loss)
+    # print(1 - loss)
 
     if loss > 1: loss = 1
 
@@ -337,5 +342,123 @@ def plot_contour_speedup():
     contour.update_yaxes(title_text="Perforation Rate B [%]")
     contour.write_image(os.path.join(OUTPUT_DIR,"speed-up-contour.pdf"))
 
-plot_contour()
-plot_contour_speedup()
+# plot_contour()
+# plot_contour_speedup()
+
+def process_experiment_data(experiments) -> any:
+    data = {
+            'speed-up': [],
+            'accuracy': [],
+            'sum_accuracy': [],
+            'heart-rate': [],
+            'relative-rate': [],
+          # 'pr_0': [], ..., 'pr_n': [],
+        }
+    
+    for experiment in experiments:
+        print("Handeling experiment: ", experiment)
+        
+        results = compile_testdata(experiment, RESULTS_DIR, 'swaptions')
+        reference = results[0]
+        
+        for r in results:
+            # catch for the broken log
+            accuracy = calc_accuracy(r, reference)
+            sum_accuracy = calc_accuracy_sum(r, reference)
+            speedup = calc_speedup(r, reference)
+
+            if accuracy == 0:
+                continue
+
+            for i, pr in enumerate(r.pr_vector):
+
+                if('pr_{}'.format(i) not in data):
+                    data['pr_{}'.format(i)] = []
+
+
+                data['pr_{}'.format(i)].append(int(pr))
+
+
+            data['speed-up'].append(float(speedup))
+            data['accuracy'].append(float(accuracy))
+            data['sum_accuracy'].append(float(sum_accuracy))
+
+            data['heart-rate'].append(r.hb_df['Instant Rate'].iloc[-1])
+            data['relative-rate'].append( r.hb_df['Instant Rate'].iloc[-1] - reference.hb_df['Instant Rate'].iloc[-1])
+
+    return data
+    
+# Thank you chatGPT.
+def create_grid_search(nd, ranges, step_sizes):
+    """
+    Create a grid search pattern for an nd-dimensional space.
+
+    Parameters:
+    nd (int): Number of dimensions.
+    ranges (list of tuples): Each tuple specifies the (min, max) range for a dimension.
+    step_sizes (list of floats): Step size for each dimension.
+
+    Returns:
+    np.ndarray: 2D array with grid search points.
+    """
+    # Create a list of arrays representing the values for each dimension
+    grids = [np.arange(start, stop, step) for (start, stop), step in zip(ranges, step_sizes)]
+    
+    # Generate the meshgrid for the nd-dimensional space
+    mesh = np.meshgrid(*grids, indexing='ij')
+    
+    # Flatten the meshgrid and combine into a 2D array
+    grid_points = np.vstack([np.ravel(m) for m in mesh]).T
+    
+    return grid_points
+
+
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel, RBF
+
+# 1: process the experiment data.
+data_dict = process_experiment_data(experiments=('swaptions_surface_graph', 
+                                            'swaptions_surface_a0_b1', 
+                                            'swaptions_surface_3_a0_b1',
+                                            'parsec-swaptions_surface'))
+
+data = list(zip(data_dict['pr_0'], data_dict['pr_1']))
+
+X = np.array(data)
+y = data_dict['sum_accuracy']
+
+kernel = 1.0 * RBF(length_scale_bounds=(1e-5, 1e10)) + WhiteKernel(noise_level_bounds=(1e-10, 1e1)) #  length_scale=(1e1), noise_level=1e-1, 
+gpr = GaussianProcessRegressor(kernel=kernel, alpha=0.0).fit(X, y)
+
+#    score the model to check if it explains the data well.
+print("model R2 score:", gpr.score(X, y))
+
+# 2: get the confidence of the space by using gridsearch in the model 
+#    from there and see if it can help you build a better model.
+X_uncertainty = create_grid_search(2, ranges=[(0, 75), (0, 75)], step_sizes=[1, 1])
+y_pred, sigma = gpr.predict(X_uncertainty, return_std=True)
+
+#    Identify the point with the maximum uncertainty
+most_uncertain_point = X_uncertainty[np.argmax(sigma)]
+
+
+
+for i, e in enumerate(sigma):
+    if e > 0.4: 
+        print(e, i, X_uncertainty[i])
+
+print("Most uncertain point in the model is: ", most_uncertain_point)
+
+import plotly.express as px
+import plotly.graph_objects as go
+
+fig = go.Figure(px.scatter_3d(x=X_uncertainty.T[0], y=X_uncertainty.T[1], z=y_pred, color=y_pred, opacity=0.5))
+
+fig.show()
+
+# then integrate this into the data retrieval process on das5.
+
+# made a simple exponential regression model for the speedup and see if you can get permutation 
+# search to work.
+
+# look at some examples for the using the model.
